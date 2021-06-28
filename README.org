@@ -1,0 +1,26 @@
+** 28 June 2021
+Outline of paper:
+- AUC can be computed via Mann-Whitney sum of indicator functions,
+  over all pairs of positive and negative labels.
+- Indicator functions can be relaxed to linear or squared hinge loss,
+  which have gradients so are useful for learning algorithms.
+- Any of these loss functions (and gradients) can be computed, for N
+  labeled training examples, in log-linear O(N log N) time, by first
+  sorting the predicted values (offset one class by the margin), then
+  using a cumulative sum of a functional representation of the loss
+  functions (constant, linear, quadratic coefficients). 
+- Indicator function (AUC) uses only the constant coefficient.
+- Linear hinge loss uses constant and linear coefficients.
+- Squared hinge loss uses all three coefficients (constant, linear,
+  quadratic).
+- For the special case of linear hinge loss with margin=0 we can
+  interpret the loss function as Area Under the Product (AUP) of False
+  Positive and False Negative functions. (only difference with our AUM
+  loss function is replacing Min with Product)
+- This suggests exploring generalizations of AUM using non-zero
+  margin, and squared rather than linear hinge loss. 
+- Novelty: faster algorithm for computing existing loss function /
+  gradient in binary classification problems, new loss functions for
+  changepoint detection problems.
+- Experiments: Min vs Product? Linear vs quadratic hinge loss? Zero
+  versus non-zero margin?
