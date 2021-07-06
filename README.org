@@ -1,3 +1,18 @@
+** 6 July 2021
+
+[[file:figure-timing-grad-squared-hinge-data.R]] computes timings in simulated data, [[file:figure-timing-grad-squared-hinge-data.csv]]
+
+[[file:figure-timing-grad-squared-hinge.R]] makes
+
+[[file:figure-timing-grad-squared-hinge-sorted.png]]
+
+Figure above shows slight difference in computation time when
+predictions are sorted (all correct). Below we see that functional
+approach (log-linear) is orders of magnitude faster than Naïve
+approach, seemingly 10x slower than Logistic regression.
+
+[[file:figure-timing-grad-squared-hinge.png]]
+
 ** 28 June 2021
 Outline of paper:
 - AUC can be computed via Mann-Whitney sum of indicator functions,
@@ -9,7 +24,8 @@ Outline of paper:
   sorting the predicted values (offset one class by the margin), then
   using a cumulative sum of a functional representation of the loss
   functions (constant, linear, quadratic coefficients). 
-- Indicator function (AUC) uses only the constant coefficient.
+- Indicator function (AUC) uses only the constant coefficient
+  (actually needs a modification if there are ties).
 - Linear hinge loss uses constant and linear coefficients.
 - Squared hinge loss uses all three coefficients (constant, linear,
   quadratic).
