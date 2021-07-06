@@ -29,6 +29,7 @@ print(dl)
 dev.off()
 
 one <- stats.dt[prediction.order=="unsorted"]
+one[, .SD[which.max(N)], by=algorithm][order(N)]
 gg <- ggplot()+
   geom_line(aes(
     N, median, color=algorithm),
@@ -38,12 +39,12 @@ gg <- ggplot()+
     alpha=0.5,
     data=one)+
   scale_x_log10(
-    "Number of labeled examples = elements in gradient vector",
-    limits=one[, c(min(N), max(N)*10)])+
+    "Number of labeled examples = elements in gradient vector")+
   scale_y_log10(
     "Time to compute gradient (seconds),
-median line and min/max band over 10 timings")
-dl <- directlabels::direct.label(gg, "right.polygons")
+median line and min/max band over 10 timings",
+limits=one[, c(min(min), max(max)*1.3)])
+dl <- directlabels::direct.label(gg, "top.polygons")
 png("figure-timing-grad-squared-hinge.png", width=6, height=4, units="in", res=200)
 print(dl)
 dev.off()

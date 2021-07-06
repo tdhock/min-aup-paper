@@ -1,6 +1,6 @@
 library(data.table)
 
-N.vec <- as.integer(10^seq(1, 6, by=0.5))
+N.vec <- as.integer(10^seq(1, 7, by=0.5))
 max.N <- max(N.vec)
 all.labels.vec <- rep(c(-1,1), l=max.N)
 set.seed(1)
@@ -31,8 +31,8 @@ for(N in N.vec){
     result.list <- list()
     margin <- 1
     m.args <- c(do.sub(Logistic={
-      aum:::logistic_grad(order.pred.vec, N.labels.vec)
-    }, Functional={
+      -N.labels.vec/(1+exp(order.pred.vec*N.labels.vec))
+    }), if(N <= 1e6)do.sub(Functional={
       augmented.pred <- order.pred.vec+ifelse(N.labels.vec==1, 0, margin)
       grad.vec <- rep(NA_real_, length(order.pred.vec))
       sorted.indices <- order(augmented.pred)
@@ -49,12 +49,12 @@ for(N in N.vec){
         quadratic <- cumsum(I.coef)
         linear <- cumsum(I.coef*s*2*z)
         constant <- cumsum(I.coef*z^2)
-        loss.values <- quadratic*pred.sorted^2 + linear*pred.sorted + constant
         grad.values <- 2*quadratic*pred.sorted + linear
         is.loss <- labels.sorted == -s
         grad.indices <- i[is.loss]
         grad.vec[grad.indices] <- grad.values[is.loss]
       }
+      loss.values <- quadratic*pred.sorted^2 + linear*pred.sorted + constant
       list(
         loss=sum(loss.values[is.loss]),
         gradient=grad.vec)

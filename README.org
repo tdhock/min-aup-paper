@@ -13,6 +13,19 @@ approach, seemingly 10x slower than Logistic regression.
 
 [[file:figure-timing-grad-squared-hinge.png]]
 
+Below we show the timing stats for the largest size for each
+algorithm. In 1 second: 
+- Naïve can learn from ~10^3 examples, 
+- Functional can learn from ~10^6 examples,
+- Logistic can learn from ~10^7 examples.
+
+#+begin_src R
+    algorithm        N prediction.order       max    median       min
+1:      Naïve     3162         unsorted 1.1355375 1.0555564 1.0300934
+2: Functional  1000000         unsorted 0.7038154 0.6431228 0.6332610
+3:   Logistic 10000000         unsorted 0.9513424 0.9233314 0.9145711
+#+end_src
+
 ** 28 June 2021
 Outline of paper:
 - AUC can be computed via Mann-Whitney sum of indicator functions,
