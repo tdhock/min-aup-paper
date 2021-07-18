@@ -1,3 +1,22 @@
+** 18 July 2021
+
+[[file:figure-timing-grad-square-data.R]] makes [[file:figure-timing-grad-square-data.csv]]
+
+[[file:figure-timing-grad-square.R]] makes
+
+[[file:figure-timing-grad-square.png]]
+
+#+begin_src R
+> stats.dt[, .SD[which.max(N)], by=algorithm][order(N)]
+                   algorithm        N       max    median       min
+                      <char>    <int>     <num>     <num>     <num>
+1:             Naïve\nsquare     3162 1.4948155 1.4085489 1.2182172
+2:      Naïve\nsquared hinge     3162 1.5594398 1.4264545 1.3262214
+3:        Functional\nsquare  3162277 0.9418847 0.9120649 0.8175275
+4: Functional\nsquared hinge  3162277 2.3022204 2.1675010 2.0563932
+5:                  Logistic 10000000 0.9223471 0.8526867 0.8260068
+#+end_src
+
 ** 6 July 2021
 
 [[file:figure-timing-grad-squared-hinge-data.R]] computes timings in simulated data, [[file:figure-timing-grad-squared-hinge-data.csv]]
