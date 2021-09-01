@@ -1,3 +1,9 @@
+** 1 Sept 2021
+
+[[file:figure-concept.R]] makes
+
+[[file:figure-concept.png]]
+
 ** 18 July 2021
 
 [[file:figure-timing-grad-square-data.R]] makes [[file:figure-timing-grad-square-data.csv]]
