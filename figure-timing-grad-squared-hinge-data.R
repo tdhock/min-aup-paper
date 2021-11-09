@@ -36,7 +36,7 @@ for(N in N.vec){
       augmented.pred <- order.pred.vec+ifelse(N.labels.vec==1, 0, margin)
       grad.vec <- rep(NA_real_, length(order.pred.vec))
       sorted.indices <- order(augmented.pred)
-      for(s in c(1, -1)){
+      for(s in c(1, -1)){#two iterations required if you want gradient, only one necessary if you want loss.
         i <- if(s==1){
           sorted.indices
         }else{
@@ -49,6 +49,7 @@ for(N in N.vec){
         quadratic <- cumsum(I.coef)
         linear <- cumsum(I.coef*s*2*z)
         constant <- cumsum(I.coef*z^2)
+        ## below is only for gradient.
         grad.values <- 2*quadratic*pred.sorted + linear
         is.loss <- labels.sorted == -s
         grad.indices <- i[is.loss]
