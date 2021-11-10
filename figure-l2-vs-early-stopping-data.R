@@ -11,7 +11,7 @@ esl.list <- list(
       dt[, famhist := ifelse(famhist=="Present", 1, 0)]
     },
     label.fun=function(dt)ncol(dt)),
-  "zip.train.gz"=list(
+  "zip.train.gz"=list( #TODO investigate why zero loss.
     label.fun=function(dt)1))
 ## code to run on each data set.
 sets <- c("train", "test")
@@ -55,25 +55,25 @@ for(f in names(esl.list)){
   }
 }
 
-if(file.exists("figure-fashion-mnist-data.rds")){
-  mnist.list <- readRDS("figure-fashion-mnist-data.rds")
-}else{
-  mnist.list <- list(
-    fashion=keras::dataset_fashion_mnist(),
-    MNIST=keras::dataset_mnist())
-  saveRDS(data.list, "figure-fashion-mnist-data.rds")
-}
+## if(file.exists("figure-fashion-mnist-data.rds")){
+##   mnist.list <- readRDS("figure-fashion-mnist-data.rds")
+## }else{
+##   mnist.list <- list(
+##     fashion=keras::dataset_fashion_mnist(),
+##     MNIST=keras::dataset_mnist())
+##   saveRDS(data.list, "figure-fashion-mnist-data.rds")
+## }
 
-for(mnist.name in names(mnist.list)){
-  one.list <- mnist.list[[mnist.name]]
-  for(set in sets){
-    one.set <- one.list[[set]]
-    is.01 <- one.set$y %in% 0:1
-    data.list[[mnist.name]][[set]] <- list(
-      x=matrix(one.set$x[is.01,,]/255*2-1, sum(is.01)),
-      y=as.integer(one.set$y[is.01]))
-  }
-}
+## for(mnist.name in names(mnist.list)){
+##   one.list <- mnist.list[[mnist.name]]
+##   for(set in sets){
+##     one.set <- one.list[[set]]
+##     is.01 <- one.set$y %in% 0:1
+##     data.list[[mnist.name]][[set]] <- list(
+##       x=matrix(one.set$x[is.01,,]/255*2-1, sum(is.01)),
+##       y=as.integer(one.set$y[is.01]))
+##   }
+## }
 
 sapply(data.list, function(L)sapply(L, function(l)range(l$x)))
 sapply(data.list, function(L)sapply(L, function(l)sum(0==apply(l$x, 2, sd))))
@@ -145,6 +145,51 @@ get.loss.grad <- function(order.pred.vec, N.labels.vec, margin=1){
     gradient=grad.vec/denominator)
 }
 
+learn <- function(subtrain, verbose=0, lambda=0, tol=1e-3){
+  non.const.i <- which(apply(subtrain$x, 2, sd) > 0)
+  full.weight <- rep(0, ncol(subtrain$x))
+  X.subtrain <- subtrain$x[,non.const.i]
+  weight.vec <- rep(0, ncol(X.subtrain))
+  epoch <- 0
+  crit <- Inf
+  step.size <- 1
+  weight.mat.list <- list()
+  while(crit > tol){
+    epoch <- epoch+1
+    pred.vec <- X.subtrain %*% weight.vec
+    loss.grad.list <- get.loss.grad(pred.vec, subtrain$y)
+    loss.grad <- t(X.subtrain) %*% loss.grad.list$gradient
+    pen.grad <- weight.vec * lambda/length(weight.vec)
+    weight.grad <- loss.grad + pen.grad
+    crit <- sum(abs(weight.grad))
+    weight.after.step <- function(s)weight.vec - s * weight.grad
+    cost.after.step <- function(s){
+      w <- weight.after.step(s)
+      loss <- get.loss.grad(X.subtrain %*% w, subtrain$y)$loss
+      loss+0.5*sum(weight.vec^2)*lambda/length(weight.vec)
+    }
+    step.factor <- c(2, 1, 0.5, 0.1)
+    step.candidates <- step.size*step.factor
+    step.cost <- sapply(step.candidates, cost.after.step)
+    step.size <- step.candidates[which.min(step.cost)]
+    if(step.size<1e-3)step.size <- 0.1
+    if(verbose)cat(sprintf(
+      "epoch=%d cost=%f crit=%f best_step=%f\n",
+      epoch,
+      cost.after.step(0),
+      crit,
+      step.size))
+    if(FALSE){
+      roc.df <- WeightedROC::WeightedROC(pred.vec, subtrain$y)
+      WeightedROC::WeightedAUC(roc.df)
+    }
+    weight.vec <- weight.after.step(step.size)
+    full.weight[non.const.i] <- weight.vec
+    weight.mat.list[[paste(epoch)]] <- full.weight
+  }
+  do.call(cbind, weight.mat.list)
+}  
+
 for(data.name in names(prop.data.list)){
   one.data <- prop.data.list[[data.name]]
   for(prop.pos.train.labels in names(one.data$train)){
@@ -161,34 +206,39 @@ for(data.name in names(prop.data.list)){
         x=x[is.set,],
         y=y[is.set]))
     }
-    non.const.i <- which(apply(tlist$subtrain$x, 2, sd) > 0)
-    X.subtrain <- tlist$subtrain$x[,non.const.i]
-    weight.vec <- rep(0, ncol(X.subtrain))
-    for(epoch in 1:100){
-      pred.vec <- X.subtrain %*% weight.vec
-      loss.grad.list <- get.loss.grad(pred.vec, tlist$subtrain$y)
-      weight.grad <- t(X.subtrain) %*% loss.grad.list$gradient
-      if(FALSE){
-        roc.df <- WeightedROC::WeightedROC(pred.vec, tlist$subtrain$y)
-        WeightedROC::WeightedAUC(roc.df)
-      }
-      weight.after.step <- function(s)weight.vec - s * weight.grad
-      loss.after.step <- function(s){
-        w <- weight.after.step(s)
-        get.loss.grad(X.subtrain %*% w, tlist$subtrain$y)$loss
-      }
-      step.sizes <- 10^seq(-3, 4, by=0.5)
-      step.loss <- sapply(step.sizes, loss.after.step)
-      plot(log10(step.sizes), log10(step.loss))
-      best.step <- step.sizes[which.min(step.loss)]
-      cat(sprintf(
-        "epoch=%d loss=%f crit=%f best_step=%f\n",
-        epoch,
-        loss.grad.list$loss,
-        sum(abs(weight.grad)),
-        best.step))
-      weight.vec <- weight.after.step(best.step)
+    pen.weight.mat.list <- list()
+    for(penalty in 10^seq(1, -5, by=-0.5)){
+      print(penalty)
+      learn.mat <- learn(tlist$subtrain, verbose=1, lambda=penalty)
+      pen.weight.mat.list[[paste(penalty)]] <- learn.mat[,ncol(learn.mat)]
     }
+    reg.type.list <- list(
+      penalty=do.call(cbind, pen.weight.mat.list),
+      epochs=learn(tlist$subtrain))
+    loss.dt.list <- list()
+    for(reg.param in names(reg.type.list)){
+      weight.mat <- reg.type.list[[reg.param]]
+      for(set.name in names(tlist)){
+        set.data <- tlist[[set.name]]
+        pred.mat <- set.data$x %*% weight.mat
+        loss <- apply(
+          pred.mat, 2, function(pred)get.loss.grad(pred, set.data$y)$loss)
+        loss.dt.list[[paste(reg.param, set.name)]] <- data.table(
+          set.name,
+          reg.param,
+          reg.i=seq(0, 1, l=ncol(pred.mat)),
+          reg.value=as.numeric(colnames(pred.mat)),
+          loss)
+      }
+    }
+    loss.dt <- do.call(rbind, loss.dt.list)
+    stop(1)
+    ggplot()+
+      geom_line(aes(
+        reg.i, loss, color=reg.param),
+        data=loss.dt)+
+      facet_grid(. ~ set.name)+
+      scale_y_log10()
   }
 }
 
