@@ -1,7 +1,13 @@
 ** 9 Nov 2021
 
 [[file:figure-l2-vs-early-stopping-data.R]] experiment comparing L2
-regularization with early stopping.
+regularization with early stopping, makes [[file:figure-l2-vs-early-stopping-data.csv]]
+
+[[file:figure-l2-vs-early-stopping.R]] makes
+
+[[file:figure-l2-vs-early-stopping-spam-validation.png]]
+
+[[file:figure-l2-vs-early-stopping.png]]
 
 ** 1 Sept 2021
 

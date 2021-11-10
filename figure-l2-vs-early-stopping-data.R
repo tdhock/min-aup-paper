@@ -55,25 +55,25 @@ for(f in names(esl.list)){
   }
 }
 
-## if(file.exists("figure-fashion-mnist-data.rds")){
-##   mnist.list <- readRDS("figure-fashion-mnist-data.rds")
-## }else{
-##   mnist.list <- list(
-##     fashion=keras::dataset_fashion_mnist(),
-##     MNIST=keras::dataset_mnist())
-##   saveRDS(data.list, "figure-fashion-mnist-data.rds")
-## }
+if(file.exists("figure-fashion-mnist-data.rds")){
+  mnist.list <- readRDS("figure-fashion-mnist-data.rds")
+}else{
+  mnist.list <- list(
+    fashion=keras::dataset_fashion_mnist(),
+    MNIST=keras::dataset_mnist())
+  saveRDS(data.list, "figure-fashion-mnist-data.rds")
+}
 
-## for(mnist.name in names(mnist.list)){
-##   one.list <- mnist.list[[mnist.name]]
-##   for(set in sets){
-##     one.set <- one.list[[set]]
-##     is.01 <- one.set$y %in% 0:1
-##     data.list[[mnist.name]][[set]] <- list(
-##       x=matrix(one.set$x[is.01,,]/255*2-1, sum(is.01)),
-##       y=as.integer(one.set$y[is.01]))
-##   }
-## }
+for(mnist.name in names(mnist.list)){
+  one.list <- mnist.list[[mnist.name]]
+  for(set in sets){
+    one.set <- one.list[[set]]
+    is.01 <- one.set$y %in% 0:1
+    data.list[[mnist.name]][[set]] <- list(
+      x=matrix(one.set$x[is.01,,]/255*2-1, sum(is.01)),
+      y=as.integer(one.set$y[is.01]))
+  }
+}
 
 sapply(data.list, function(L)sapply(L, function(l)range(l$x)))
 sapply(data.list, function(L)sapply(L, function(l)sum(0==apply(l$x, 2, sd))))
@@ -188,8 +188,9 @@ learn <- function(subtrain, verbose=0, lambda=0, tol=1e-3){
     weight.mat.list[[paste(epoch)]] <- full.weight
   }
   do.call(cbind, weight.mat.list)
-}  
+}
 
+loss.dt.list <- list()
 for(data.name in names(prop.data.list)){
   one.data <- prop.data.list[[data.name]]
   for(prop.pos.train.labels in names(one.data$train)){
@@ -215,7 +216,6 @@ for(data.name in names(prop.data.list)){
     reg.type.list <- list(
       penalty=do.call(cbind, pen.weight.mat.list),
       epochs=learn(tlist$subtrain))
-    loss.dt.list <- list()
     for(reg.param in names(reg.type.list)){
       weight.mat <- reg.type.list[[reg.param]]
       for(set.name in names(tlist)){
@@ -223,22 +223,21 @@ for(data.name in names(prop.data.list)){
         pred.mat <- set.data$x %*% weight.mat
         loss <- apply(
           pred.mat, 2, function(pred)get.loss.grad(pred, set.data$y)$loss)
-        loss.dt.list[[paste(reg.param, set.name)]] <- data.table(
-          set.name,
+        loss.dt.list[[paste(
+          data.name, prop.pos.train.labels, reg.param, set.name
+        )]] <- data.table(
+          data.name,
+          prop.pos.train.labels,
           reg.param,
+          set.name,
           reg.i=seq(0, 1, l=ncol(pred.mat)),
           reg.value=as.numeric(colnames(pred.mat)),
           loss)
       }
     }
-    loss.dt <- do.call(rbind, loss.dt.list)
-    stop(1)
-    ggplot()+
-      geom_line(aes(
-        reg.i, loss, color=reg.param),
-        data=loss.dt)+
-      facet_grid(. ~ set.name)+
-      scale_y_log10()
   }
 }
+
+loss.dt <- do.call(rbind, loss.dt.list)
+data.table::fwrite(loss.dt, "figure-l2-vs-early-stopping-data.csv")
 
