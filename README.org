@@ -1,3 +1,8 @@
+** 12 Nov 2021
+
+[[file:figure-l2-vs-early-stopping-spam-data.R]] in progress experiments
+about spam data.
+
 ** 9 Nov 2021
 
 [[file:figure-l2-vs-early-stopping-data.R]] experiment comparing L2
