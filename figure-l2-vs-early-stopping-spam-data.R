@@ -44,6 +44,10 @@ for(set in sets){
     x=unname(X.all[is.set,]),
     y=as.integer(y.all[is.set]))
 }
+X.eig <- eigen(t(X.all) %*% X.all)
+str(X.eig)
+## > with(X.eig, max(values)/min(values))
+## [1] 727559
 
 subset.list <- function(L, n0, n1=n0){
   max.dt <- data.table(label=c(0,1), max.number=c(n0,n1))
