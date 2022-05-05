@@ -40,6 +40,10 @@ for(set in unique(set.vec)){
     x=unname(X.all[is.set,]),
     y=as.integer(y.all[is.set]))
 }
+X.eig <- eigen(t(X.all) %*% X.all)
+str(X.eig)
+## > with(X.eig, max(values)/min(values))
+## [1] 727559
 
 subset.list <- function(L, keep){
   with(L, list(x=x[keep,], y=y[keep]))
