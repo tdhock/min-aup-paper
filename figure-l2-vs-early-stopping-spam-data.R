@@ -1,13 +1,7 @@
+library(ggplot2)
 library(data.table)
 ## define variables which are specific to each data set.
 prefix <- "https://web.stanford.edu/~hastie/ElemStatLearn/datasets/"
-esl.list <- list(
-  "spam.data"=list(
-    label.fun=function(dt)ncol(dt)))
-set.prop.list <- list(
-  train=c(0.01, 0.5),
-  test=0.5)
-sets <- names(set.prop.list)
 one.data <- list()
 f <- "spam.data"
 if(!file.exists(f)){
@@ -35,17 +29,23 @@ y.all <- y.vec[is.01]
 set.seed(1)
 n.folds <- 7
 uniq.folds <- 1:n.folds
-fold.vec <- sample(rep(uniq.folds, l=nrow(X.all)))
+fold.dt <- data.table(label=y.all)
+fold.dt[, fold := sample(rep(uniq.folds, l=.N)), by=label]
+fold.dt[, table(fold, label)]
 test.fold <- 1
-set.vec <- ifelse(fold.vec==test.fold, "test", "train")
-for(set in sets){
+set.vec <- ifelse(fold.dt$fold==test.fold, "test", "train")
+for(set in unique(set.vec)){
   is.set <- set.vec==set
   one.data[[set]] <- list(
     x=unname(X.all[is.set,]),
     y=as.integer(y.all[is.set]))
 }
 
-subset.list <- function(L, n0, n1=n0){
+subset.list <- function(L, keep){
+  with(L, list(x=x[keep,], y=y[keep]))
+}
+
+subset.n0.n1 <- function(L, n0, n1=n0){
   max.dt <- data.table(label=c(0,1), max.number=c(n0,n1))
   keep <- data.table(
     label=L$y,
@@ -53,22 +53,7 @@ subset.list <- function(L, n0, n1=n0){
   )[, label.number := 1:.N, by=label][
     max.dt, on="label"
   ][label.number <= max.number, orig.index]
-  with(L, list(x=x[keep,], y=y[keep]))
-}
-
-## TODO.
-prop.data.list <- list()
-for(set in names(set.prop.list)){
-  set.prop.vec <- set.prop.list[[set]]
-  set.list <- one.data[[set]]
-  y.counts <- table(set.list$y)
-  balanced.list <- subset.list(set.list, min(y.counts))
-  n0 <- sum(set.list$y==0)
-  for(set.prop in set.prop.vec){
-    n1 <- set.prop*n0/(1-set.prop)
-    prop.data.list[[set]][[paste(set.prop)]] <-
-      subset.list(balanced.list, n0, n1)
-  }
+  subset.list(L, keep)
 }
 
 get.loss.grad <- function(order.pred.vec, N.labels.vec, margin=1){
@@ -81,10 +66,10 @@ get.loss.grad <- function(order.pred.vec, N.labels.vec, margin=1){
   sorted.indices <- order(augmented.pred)
   for(s in c(1, -1)){
     i <- if(s==1){
-      sorted.indices
-    }else{
-      rev(sorted.indices)
-    }
+           sorted.indices
+         }else{
+           rev(sorted.indices)
+         }
     pred.sorted <- order.pred.vec[i]
     labels.sorted <- labels.vec[i]
     I.coef <- ifelse(labels.sorted == s, 1, 0)
@@ -109,10 +94,12 @@ learn <- function(subtrain, verbose=0, lambda=0, tol=1e-3){
   full.weight <- rep(0, ncol(subtrain$x))
   X.subtrain <- subtrain$x[,non.const.i]
   weight.vec <- rep(0, ncol(X.subtrain))
+  full.weight[non.const.i] <- weight.vec
   epoch <- 0
+  weight.mat.list <- list()
+  weight.mat.list[[paste(epoch)]] <- full.weight
   crit <- Inf
   step.size <- 1
-  weight.mat.list <- list()
   while(crit > tol){
     epoch <- epoch+1
     pred.vec <- X.subtrain %*% weight.vec
@@ -131,7 +118,7 @@ learn <- function(subtrain, verbose=0, lambda=0, tol=1e-3){
     step.candidates <- step.size*step.factor
     step.cost <- sapply(step.candidates, cost.after.step)
     step.size <- step.candidates[which.min(step.cost)]
-    if(step.size<1e-3)step.size <- 0.1
+    if(step.size<1e-3)step.size <- 1/lambda
     if(verbose)cat(sprintf(
       "epoch=%d cost=%f crit=%f best_step=%f\n",
       epoch,
@@ -149,54 +136,86 @@ learn <- function(subtrain, verbose=0, lambda=0, tol=1e-3){
   do.call(cbind, weight.mat.list)
 }
 
-loss.dt.list <- list()
-for(data.name in names(prop.data.list)){
-  one.data <- prop.data.list[[data.name]]
-  for(prop.pos.train.labels in names(one.data$train)){
-    train.list <- one.data$train[[prop.pos.train.labels]]
-    set.seed(1)
-    index.dt <- data.table(label=train.list$y)
+test.y.counts <- table(one.data$test$y)
+train.n <- 1000
+test.dt.list <- list()
+for(train.prop.pos in c(0.01, 0.5)){
+  train.n1 <- train.n * train.prop.pos
+  train.n0 <- train.n-train.n1
+  prop.data.list <- list(
+    test=subset.n0.n1(one.data$test, min(test.y.counts)),
+    train=subset.n0.n1(one.data$train, train.n0, train.n1))
+  sapply(prop.data.list, function(L)table(L$y))
+  for(seed in 1:10){
+    index.dt <- data.table(label=prop.data.list$train$y)
     sv <- c("subtrain", "validation")
     index.dt[, set := sample(rep(sv, l=.N)), by=label]
     index.dt[, .(count=.N), by=.(label,set)]
     tlist <- list()
     for(s in sv){
       is.set <- index.dt$set==s
-      tlist[[s]] <- with(train.list, list(
-        x=x[is.set,],
-        y=y[is.set]))
+      tlist[[s]] <- subset.list(prop.data.list$train, is.set)
     }
     pen.weight.mat.list <- list()
-    for(penalty in 10^seq(1, -5, by=-0.5)){
+    for(penalty in 10^seq(3, -5, by=-0.5)){
       print(penalty)
       learn.mat <- learn(tlist$subtrain, verbose=1, lambda=penalty)
-      pen.weight.mat.list[[paste(penalty)]] <- learn.mat[,ncol(learn.mat)]
+      pen.weight.mat.list[[paste(-log10(penalty))]] <- learn.mat[,ncol(learn.mat)]
     }
     reg.type.list <- list(
-      penalty=do.call(cbind, pen.weight.mat.list),
+      "-log10(penalty)"=do.call(cbind, pen.weight.mat.list),
       epochs=learn(tlist$subtrain))
+    metrics.list <- list(
+      loss=function(pred, y)get.loss.grad(pred, y)$loss,
+      auc=function(pred, y){
+        roc.df <- WeightedROC::WeightedROC(pred, y)
+        WeightedROC::WeightedAUC(roc.df)
+      })
+    metrics.dt.list <- list()
     for(reg.param in names(reg.type.list)){
       weight.mat <- reg.type.list[[reg.param]]
       for(set.name in names(tlist)){
         set.data <- tlist[[set.name]]
         pred.mat <- set.data$x %*% weight.mat
-        loss <- apply(
-          pred.mat, 2, function(pred)get.loss.grad(pred, set.data$y)$loss)
-        loss.dt.list[[paste(
-          data.name, prop.pos.train.labels, reg.param, set.name
-        )]] <- data.table(
-          data.name,
-          prop.pos.train.labels,
-          reg.param,
-          set.name,
-          reg.i=seq(0, 1, l=ncol(pred.mat)),
-          reg.value=as.numeric(colnames(pred.mat)),
-          loss)
+        for(valid.metric.name in names(metrics.list)){
+          metrics.dt.list[[paste(
+            reg.param, set.name, valid.metric.name
+          )]] <- data.table(
+            reg.param,
+            set.name,
+            valid.metric.name,
+            reg.i=1:ncol(pred.mat),
+            reg.value=as.numeric(colnames(pred.mat)),
+            valid.metric.value=apply(
+              pred.mat, 2, metrics.list[[valid.metric.name]], set.data$y))
+        }
       }
     }
+    metrics.dt <- do.call(rbind, metrics.dt.list)
+    if(FALSE){
+      ggplot()+
+        geom_line(aes(
+          reg.value, valid.metric.value,
+          color=set.name),
+          data=metrics.dt)+
+        facet_grid(
+          valid.metric.name ~ reg.param, scales="free", labeller=label_both)
+    }
+    seed.test.dt <- metrics.dt[set.name=="validation", {
+      which.m <- if(valid.metric.name=="auc")which.max else which.min
+      reg.i <- .SD[which.m(valid.metric.value), reg.i]
+      weight.vec <- reg.type.list[[reg.param]][, reg.i]
+      pred.vec <- one.data$test$x %*% weight.vec
+      data.table(test.metric.name=names(metrics.list))[, {
+        metric.fun <- metrics.list[[test.metric.name]]
+        data.table(test.metric.value=metric.fun(pred.vec, one.data$test$y))
+      }, by=test.metric.name]
+    }, by=.(reg.param, valid.metric.name)]
+    test.dt.list[[paste(train.prop.pos, seed)]] <- data.table(
+      train.prop.pos, seed, seed.test.dt)
   }
 }
+test.dt <- do.call(rbind, test.dt.list)
 
-loss.dt <- do.call(rbind, loss.dt.list)
-data.table::fwrite(loss.dt, "figure-l2-vs-early-stopping-spam-data.csv")
+data.table::fwrite(test.dt, "figure-l2-vs-early-stopping-spam-data.csv")
 
