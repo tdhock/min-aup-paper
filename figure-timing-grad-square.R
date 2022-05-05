@@ -59,9 +59,9 @@ gg <- ggplot()+
     N, ymin=min, ymax=max, fill=algorithm),
     alpha=0.5,
     data=stats.dt)+
+  coord_cartesian(xlim=stats.dt[, c(1e2, max(N)*4)])+
   scale_x_log10(
     "Number of labeled examples = elements in gradient vector",
-    limits=stats.dt[, c(min(N), max(N)*4)],
     breaks=10^seq(1, 7))+
   ## directlabels::geom_dl(aes(
   ##   N, median, color=algorithm, label=algorithm),
@@ -74,7 +74,7 @@ and min/max band
 over 10 timings",
 breaks=10^seq(-5, 0),
 limits=stats.dt[, c(min(min), max(max)*10)])
-png("figure-timing-grad-square.png", width=6, height=2, units="in", res=200)
+png("figure-timing-grad-square.png", width=6, height=2.2, units="in", res=200)
 print(gg)
 dev.off()
 
