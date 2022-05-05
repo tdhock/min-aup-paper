@@ -1,7 +1,17 @@
+** 5 May 2022
+
+[[file:figure-timing-grad-both-data.R]]
+
 ** 12 Nov 2021
 
 [[file:figure-l2-vs-early-stopping-spam-data.R]] in progress experiments
 about spam data.
+
+[[file:figure-l2-vs-early-stopping-spam-data.csv]]
+
+[[file:figure-l2-vs-early-stopping.R]]
+
+[[file:figure-l2-vs-early-stopping.png]]
 
 ** 9 Nov 2021
 
